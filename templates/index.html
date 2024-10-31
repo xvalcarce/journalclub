@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Journal Club</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <h1>Journal Club</h1>
+
+  <!-- Button to trigger the add-paper-form -->
+    <button id="add-paper-trigger">+ Add Paper</button>
+
+    <!-- Add Paper Form Modal (hidden by default) -->
+    <div id="add-paper-modal" style="display:none;">
+        <form id="add-paper-form" method="post" action="/add-paper/">
+            <label for="doi">DOI:</label>
+            <input type="text" id="doi" name="doi" required>
+            <label for="added_by">Added By:</label>
+            <input type="text" id="added_by" name="added_by" required>
+            <button type="submit">Submit</button>
+            <button type="button" id="close-form">Cancel</button>
+        </form>
+    </div>
+
+	 <!-- Sorting and Pagination Controls -->
+    <div>
+        <button onclick="sortPapers('published')">Sort by Date</button>
+        <button onclick="sortPapers('votes')">Sort by Votes</button>
+        <button onclick="paginate({{ page + 1 }})">Previous</button>
+        <button onclick="paginate({{ page - 1 }})" {% if page == 1 %}disabled{% endif %}>Next</button>
+    </div>
+	<!-- Range Selection Buttons -->
+	<div>
+        <button onclick="changeRange('1')">1 Day</button>
+        <button onclick="changeRange('3')">3 Days</button>
+        <button onclick="changeRange('7')">1 Week</button>
+        <button onclick="changeRange('14')">2 Weeks</button>
+        <button onclick="changeRange('31')">1 Month</button>
+	</div>
+
+	<h2>Papers {{ start_date.strftime('%b %d %Y')}} to {{ end_date.strftime('%b %d %Y') }}</h2> 
+    <div id="papers">
+        {% for paper in papers %}
+        <div class="paper">
+            <h2><a href="https://doi.org/{{ paper.doi }}" target="_blank">{{ paper.title }}</a></h2>
+            <p>{{ paper.authors }}</p>
+			<p>{{ paper.published.strftime('%b %d, %Y')}}</p>
+			<p>{{ paper.journal}} {{paper.volume}}</p>
+			<p>{{paper.abstract}}</p>
+            <p>Added by: {{ paper.added_by }} at {{ paper.created_at.strftime('%y/%m/%d %H:%M') }}</p>
+            <p id="votes-{{ paper.doi }}">Votes: {{ paper.votes }}</p>
+            <form class="upvote-form" data-doi="{{ paper.doi }}">
+                <input type="hidden" name="doi" value="{{ paper.doi }}">
+                <button type="button" class="upvote-button" data-doi="{{ paper.doi }}">Upvote</button>
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+	<script src="/static/js/app.js"></script>
+
+	<script>
+		function changeRange(newRange) {
+        window.location.href = `/?sort_by={{ sort_by }}&range=${newRange}&page=1`;
+    }
+    function sortPapers(sort_by) {
+        window.location.href = `/?sort_by=${sort_by}&range={{ range }}&page={{ page }}`;
+    }
+    function paginate(newPage) {
+        if (newPage > 0) {
+            window.location.href = `/?sort_by={{ sort_by }}&range={{ range }}&page=${newPage}`;
+        }
+    }
+    </script>
+</body>
+</html>
