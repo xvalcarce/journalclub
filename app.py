@@ -10,6 +10,8 @@ from datetime import datetime, timezone, timedelta
 
 # db helper in database.py
 from database import SessionLocal, Paper
+# doi helper 
+from doi import fetch_paper_details, create_paper
 
 app = FastAPI()
 
@@ -27,26 +29,6 @@ def get_db():
     finally:
         db.close()
 
-# Crossref API URL
-CROSSREF_API_URL = "https://api.crossref.org/works/"
-
-# Helper function to get paper details from Crossref
-def fetch_paper_details(doi: str, added_by: str) -> Paper:
-    response = requests.get(f"{CROSSREF_API_URL}{doi}")
-    if response.status_code != 200:
-        raise HTTPException(status_code=404, detail="Paper not found in Crossref.")
-    data = response.json()["message"]
-    return Paper(
-        doi=data["DOI"],
-        title=data["title"][0],
-        authors=", ".join([f"{author['given']} {author['family']}" for author in data.get("author", [])]), # Use CSV field, not so elegant
-        abstract=data.get("abstract", "No abstract available."),
-        journal=data["container-title"][0],
-        volume=data.get("volume", 0),
-        published=datetime(*data["published"]["date-parts"][0]),
-        added_by=added_by,
-        created_at=datetime.now(timezone.utc)
-    )
 
 # Homepage
 @app.get("/", response_class=HTMLResponse)
@@ -83,11 +65,13 @@ async def home(
 # Endpoint to add a paper by DOI
 @app.post("/add-paper/")
 async def add_paper(doi: str = Form(...), added_by: str = Form(...), db: Session = Depends(get_db)):
+    paper_details = fetch_paper_details(doi)
+
     # Check if paper already exists in the database
-    if db.query(Paper).filter(Paper.doi == doi).first():
+    if db.query(Paper).filter(Paper.doi == paper_details['doi']).first():
         raise HTTPException(status_code=400, detail="Paper already exists.")
 
-    paper = fetch_paper_details(doi, added_by)
+    paper = create_paper(paper_details, added_by)
     db.add(paper)
     db.commit()
     return {"message": "Paper added successfully.", "paper": paper}
